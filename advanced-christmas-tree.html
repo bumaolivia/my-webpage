@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dreamy Pink Christmas Tree</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Parisienne&display=swap" rel="stylesheet">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #020102; 
+      font-family: 'Great Vibes', 'Parisienne', cursive;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      cursor: crosshair;
+      z-index: 1;
+    }
+
+    .ui-overlay {
+      position: fixed;
+      left: 50%;
+      bottom: 30px;
+      transform: translateX(-50%);
+      text-align: center;
+      color: #fff;
+      pointer-events: none;
+      z-index: 10;
+      font-family: system-ui, sans-serif;
+    }
+
+    .btn {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 20px;
+      margin: 5px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 182, 193, 0.5);
+      background: radial-gradient(circle at top, rgba(255, 192, 203, 0.25), rgba(0, 0, 0, 0.8));
+      color: #fff0f5;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      box-shadow: 0 0 15px rgba(255, 182, 193, 0.3);
+      transition: all 0.4s ease;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background: radial-gradient(circle at top, rgba(255, 182, 193, 0.5), rgba(0, 0, 0, 0.9));
+      transform: translateY(-2px);
+      box-shadow: 0 0 25px rgba(255, 182, 193, 0.6);
+    }
+
+    .mc-text {
+      position: fixed;
+      left: 5%;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #ffe6f2;
+      font-family: 'Great Vibes', cursive;
+      font-size: 50px; 
+      font-weight: 400;
+      text-shadow: 0 0 15px rgba(255, 182, 193, 0.6), 0 0 30px rgba(255, 192, 203, 0.4);
+      pointer-events: none;
+      opacity: 0;
+      animation: textFadeIn 3s 0.5s forwards ease-out;
+      z-index: 5;
+      line-height: 1.2;
+      text-align: left;
+    }
+
+    .mc-sub {
+      display: block;
+      font-family: 'Parisienne', cursive;
+      font-size: 22px;
+      opacity: 0.9;
+      margin-top: 8px;
+      color: #fff;
+      letter-spacing: 0.05em;
+      text-shadow: 0 0 8px rgba(255, 182, 193, 0.6);
+    }
+
+    @keyframes textFadeIn {
+      from { opacity: 0; transform: translate(-20px, -50%); filter: blur(8px); }
+      to { opacity: 1; transform: translate(0, -50%); filter: blur(0); }
+    }
+
+    #music-control {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 20;
+      font-size: 24px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+      color: #ffc0cb;
+      pointer-events: auto;
+    }
+    #music-control:hover { opacity: 1; text-shadow: 0 0 10px #ffc0cb; }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  
+  <audio id="bgm" loop>
+    <source src="https://music.163.com/song/media/outer/url?id=185763.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
+  <div id="music-control" title="Play/Pause Music">🎵</div>
+
+  <div class="mc-text">
+    Merry Christmas
+    <span class="mc-sub">Make a wish tonight</span>
+  </div>
+
+  <div class="ui-overlay">
+    <button class="btn" id="btn-reset">
+      ✨ <span>WISH AGAIN</span> ✨
+    </button>
+    <button class="btn" id="btn-chaos">
+      🦋 <span>DREAM FLIGHT</span> 🦋
+    </button>
+  </div>
+
+  <!-- Three.js CDN -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+
+  <script>
+    const bgm = document.getElementById('bgm');
+    const musicBtn = document.getElementById('music-control');
+    let isPlaying = false;
+    musicBtn.addEventListener('click', () => {
+      if (isPlaying) {
+        bgm.pause();
+        musicBtn.style.opacity = 0.5;
+      } else {
+        bgm.play();
+        musicBtn.style.opacity = 1;
+      }
+      isPlaying = !isPlaying;
+    });
+
+    function createBrightTexture(baseColor) {
+      const size = 128; // 纹理分辨率翻倍，提升细腻度
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      const gradient = ctx.createRadialGradient(
+        size / 2, size / 2, 0,
+        size / 2, size / 2, size / 2
+      );
+      
+      // 核心更小更实，边缘衰减更平滑
+      gradient.addColorStop(0.0, 'rgba(255, 255, 255, 0.9)'); 
+      gradient.addColorStop(0.15, baseColor); 
+      gradient.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020102);
+    scene.fog = new THREE.FogExp2(0x020102, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 3, 32);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5)); // 稍微提高像素比上限
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    container.appendChild(renderer.domElement);
+
+    // 使用更细腻的纹理
+    const palePinkTex = createBrightTexture('rgba(255, 182, 193, 0.6)'); 
+    const whiteTex = createBrightTexture('rgba(255, 255, 255, 0.7)');
+    
+    const heartPinkTex = (() => {
+      const size = 128; // 同样提升分辨率
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const g = ctx.createRadialGradient(size/2,size/2,0, size/2,size/2,size/2);
+      g.addColorStop(0.0, 'rgba(255, 182, 193, 0.8)'); 
+      g.addColorStop(0.5, 'rgba(255, 228, 225, 0.3)'); 
+      g.addColorStop(1.0, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(size/2,size/2,size/2,0,Math.PI*2); ctx.fill();
+      return new THREE.CanvasTexture(canvas);
+    })();
+
+    const group = new THREE.Group();
+    scene.add(group);
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2(0, 0);
+    
+    const hitGeo = new THREE.ConeGeometry(12, 30, 16);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.position.y = 0;
+    group.add(hitMesh);
+
+
+    // =============== 1. 圣诞树粒子 ===============
+    const TREE_COUNT = 25000; // 增加数量以弥补尺寸变小 (22000 -> 25000)
+    const TREE_HEIGHT = 26;
+    const TREE_RADIUS = 10;
+    
+    const t_pos = new Float32Array(TREE_COUNT * 3);
+    const t_start = new Float32Array(TREE_COUNT * 3);
+    const t_target = new Float32Array(TREE_COUNT * 3);
+    const t_sizes = new Float32Array(TREE_COUNT);
+    const t_interact = new Float32Array(TREE_COUNT * 3); 
+
+    for(let i=0; i<TREE_COUNT; i++){
+      const t = Math.random();
+      const y = -TREE_HEIGHT/2 + TREE_HEIGHT * t;
+      const rBase = (1-t) * TREE_RADIUS;
+      
+      let x, z;
+      if(Math.random() < 0.75) { 
+        const turns = 8.0;
+        const angle = t * Math.PI * 2 * turns;
+        const r = rBase * (0.9 + Math.random()*0.2);
+        x = r * Math.cos(angle);
+        z = r * Math.sin(angle);
+      } else {
+        const angle = Math.random() * Math.PI * 2;
+        const r = rBase * Math.random();
+        x = r * Math.cos(angle);
+        z = r * Math.sin(angle);
+      }
+      if(t > 0.92) { x *= 0.3; z *= 0.3; }
+
+      const i3 = i*3;
+      t_target[i3] = x; t_target[i3+1] = y; t_target[i3+2] = z;
+      
+      t_start[i3] = (Math.random()-0.5)*100;
+      t_start[i3+1] = (Math.random()-0.5)*100;
+      t_start[i3+2] = (Math.random()-0.5)*100;
+
+      t_pos[i3] = t_start[i3]; t_pos[i3+1] = t_start[i3+1]; t_pos[i3+2] = t_start[i3+2];
+      
+      // 尺寸显著减小，范围更集中
+      t_sizes[i] = 0.1 + Math.random() * 0.2; // 之前是 0.2 + 0.3
+    }
+
+    const treeGeo = new THREE.BufferGeometry();
+    treeGeo.setAttribute('position', new THREE.BufferAttribute(t_pos, 3));
+    treeGeo.setAttribute('size', new THREE.BufferAttribute(t_sizes, 1));
+
+    const particleVs = `
+      attribute float size;
+      varying float vAlpha;
+      void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        float zDist = max(-mvPosition.z, 1.0);
+        // 减小缩放系数: 500 -> 380，让近处也不至于太大
+        gl_PointSize = size * (380.0 / zDist); 
+        vAlpha = 0.8 + 0.05 * sin(position.y * 5.0); 
+      }
+    `;
+    const particleFs = `
+      uniform vec3 uColor;
+      uniform sampler2D uTexture;
+      varying float vAlpha;
+      void main() {
+        vec4 tex = texture2D(uTexture, gl_PointCoord);
+        // 边缘更平滑
+        if(tex.a < 0.02) discard; 
+        gl_FragColor = vec4(uColor, tex.a * vAlpha);
+      }
+    `;
+
+    const treeMat = new THREE.ShaderMaterial({
+      uniforms: {
+        // 指定淡粉色 #FFB6C1
+        uColor: { value: new THREE.Color(0xFFB6C1) }, 
+        uTexture: { value: palePinkTex }
+      },
+      vertexShader: particleVs,
+      fragmentShader: particleFs,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const treePoints = new THREE.Points(treeGeo, treeMat);
+    group.add(treePoints);
+
+
+    // =============== 2. 爱心 (极淡粉) ===============
+    const HEART_COUNT = 1000; 
+    const h_pos = new Float32Array(HEART_COUNT * 3);
+    const h_start = new Float32Array(HEART_COUNT * 3);
+    const h_target = new Float32Array(HEART_COUNT * 3);
+    const h_sizes = new Float32Array(HEART_COUNT);
+    const h_local = new Float32Array(HEART_COUNT * 3); 
+
+    for(let i=0; i<HEART_COUNT; i++){
+      const t = Math.random() * Math.PI * 2;
+      const r = 0.2 + Math.random() * 0.8; 
+      let x = 16 * Math.pow(Math.sin(t), 3);
+      let y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+      let z = (Math.random()-0.5) * 5;
+
+      const scale = 0.09; 
+      const offsetY = TREE_HEIGHT/2 + 2.0;
+      x *= scale * r;
+      y = y * scale * r + offsetY;
+      z *= scale * r;
+
+      const i3 = i*3;
+      h_local[i3] = x; h_local[i3+1] = y - offsetY; h_local[i3+2] = z;
+      h_target[i3] = x; h_target[i3+1] = y; h_target[i3+2] = z;
+      
+      h_start[i3] = (Math.random()-0.5)*40; h_start[i3+1] = (Math.random()-0.5)*40 + offsetY; h_start[i3+2] = (Math.random()-0.5)*40;
+      h_pos[i3] = h_start[i3]; h_pos[i3+1] = h_start[i3+1]; h_pos[i3+2] = h_start[i3+2];
+      h_sizes[i] = 0.15 + Math.random() * 0.25; // 爱心粒子也调小
+    }
+    const heartGeo = new THREE.BufferGeometry();
+    heartGeo.setAttribute('position', new THREE.BufferAttribute(h_pos, 3));
+    heartGeo.setAttribute('size', new THREE.BufferAttribute(h_sizes, 1));
+    const heartMat = new THREE.ShaderMaterial({
+      uniforms: {
+        // 稍深一点点的粉，突出形状
+        uColor: { value: new THREE.Color(0xffc1cc) }, 
+        uTexture: { value: heartPinkTex } 
+      },
+      vertexShader: particleVs,
+      fragmentShader: particleFs,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const heartPoints = new THREE.Points(heartGeo, heartMat);
+    group.add(heartPoints);
+
+    const heartGlow = new THREE.PointLight(0xffc0cb, 0, 30); 
+    heartGlow.position.set(0, TREE_HEIGHT/2 + 2.0, 0);
+    group.add(heartGlow);
+
+
+    // =============== 3. 空间粒子 ===============
+    const SPACE_COUNT = 6000; 
+    const s_pos = new Float32Array(SPACE_COUNT * 3);
+    const s_vel = new Float32Array(SPACE_COUNT * 3);
+    const s_sizes = new Float32Array(SPACE_COUNT);
+
+    for(let i=0; i<SPACE_COUNT; i++){
+      const i3 = i*3;
+      s_pos[i3] = (Math.random()-0.5) * 180;
+      s_pos[i3+1] = (Math.random()-0.5) * 140;
+      s_pos[i3+2] = (Math.random()-0.5) * 180;
+
+      s_vel[i3] = (Math.random()-0.5) * 0.03;
+      s_vel[i3+1] = (Math.random()-0.5) * 0.03;
+      s_vel[i3+2] = (Math.random()-0.5) * 0.03;
+
+      s_sizes[i] = 0.1 + Math.random() * 0.3; // 空间粒子调小
+    }
+    const spaceGeo = new THREE.BufferGeometry();
+    spaceGeo.setAttribute('position', new THREE.BufferAttribute(s_pos, 3));
+    spaceGeo.setAttribute('size', new THREE.BufferAttribute(s_sizes, 1));
+    const spaceMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(0xffffff) }, 
+        uTexture: { value: whiteTex }
+      },
+      vertexShader: particleVs,
+      fragmentShader: particleFs,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const spacePoints = new THREE.Points(spaceGeo, spaceMat);
+    scene.add(spacePoints);
+
+
+    // =============== 4. 地面 ===============
+    const GROUND_COUNT = 25000; 
+    const g_pos = new Float32Array(GROUND_COUNT * 3);
+    const g_sizes = new Float32Array(GROUND_COUNT);
+    
+    for(let i=0; i<GROUND_COUNT; i++){
+      const rBase = 3.0 + Math.sqrt(Math.random()) * 97.0; 
+      const angle = Math.random() * Math.PI * 2;
+      const x = rBase * Math.cos(angle);
+      const z = rBase * Math.sin(angle);
+      const y = -TREE_HEIGHT/2 - 2.0; 
+      const i3 = i*3;
+      g_pos[i3] = x; g_pos[i3+1] = y; g_pos[i3+2] = z;
+      g_sizes[i] = 0.1 + (rBase/100.0) * 0.2; // 地面粒子调小
+    }
+    const groundGeo = new THREE.BufferGeometry();
+    groundGeo.setAttribute('position', new THREE.BufferAttribute(g_pos, 3));
+    groundGeo.setAttribute('size', new THREE.BufferAttribute(g_sizes, 1));
+
+    const groundMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(0xffffff) }, 
+        uTexture: { value: whiteTex },
+        uTime: { value: 0 }
+      },
+      vertexShader: `
+        attribute float size;
+        uniform float uTime;
+        varying float vAlpha;
+        void main() {
+          vec3 pos = position;
+          float dist = length(pos.xz);
+          pos.y += sin(dist * 0.2 - uTime * 2.0) * 0.8 + sin(pos.x * 0.5 + uTime) * 0.2;
+          vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          float zDist = max(-mvPosition.z, 1.0);
+          // 地面粒子更小
+          gl_PointSize = size * (300.0 / zDist);
+          vAlpha = 0.8 - smoothstep(0.0, 140.0, dist); 
+        }
+      `,
+      fragmentShader: particleFs,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const groundPoints = new THREE.Points(groundGeo, groundMat);
+    group.add(groundPoints);
+
+
+    // =============== 动画 & 交互 ===============
+    let startTime = performance.now();
+    const DURATION = 5000;
+    let dreamMode = false;
+    let hoverPoint = null;
+
+    function easeOutCubic(x) {
+      return 1 - Math.pow(1 - x, 3);
+    }
+
+    let isMouseActive = false;
+    window.addEventListener('mousemove', e => {
+      isMouseActive = true;
+      const x = (e.clientX / window.innerWidth) * 2 - 1;
+      const y = -(e.clientY / window.innerHeight) * 2 + 1;
+      mouse.set(x, y);
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      startTime = performance.now();
+    });
+    document.getElementById('btn-chaos').addEventListener('click', () => {
+      dreamMode = !dreamMode;
+      const btn = document.getElementById('btn-chaos');
+      btn.querySelector('span').innerText = dreamMode ? "LANDING..." : "DREAM FLIGHT";
+      if(!dreamMode) startTime = performance.now();
+    });
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const now = performance.now();
+      let progress = (now - startTime) / DURATION;
+      if(progress > 1) progress = 1;
+      if(dreamMode) progress = Math.max(progress - 0.03, 0);
+
+      const morph = easeOutCubic(progress);
+      const time = now * 0.001;
+
+      groundMat.uniforms.uTime.value = time;
+      
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObject(hitMesh);
+      if (intersects.length > 0) {
+        hoverPoint = intersects[0].point;
+      } else {
+        hoverPoint = null;
+      }
+
+      const tp = treeGeo.attributes.position.array;
+      for(let i=0; i<TREE_COUNT; i++){
+        const i3 = i*3;
+        let tx = t_start[i3]   + (t_target[i3]   - t_start[i3])   * morph;
+        let ty = t_start[i3+1] + (t_target[i3+1] - t_start[i3+1]) * morph;
+        let tz = t_start[i3+2] + (t_target[i3+2] - t_start[i3+2]) * morph;
+
+        if(dreamMode) {
+           tx += Math.sin(time + i) * 2.0;
+           ty += Math.cos(time + i*0.5) * 2.0;
+           tz += Math.sin(time + i*0.3) * 2.0;
+        }
+
+        let dx = 0, dy = 0, dz = 0;
+        if(hoverPoint && morph > 0.8) {
+           const distSq = (tx - hoverPoint.x)**2 + (ty - hoverPoint.y)**2 + (tz - hoverPoint.z)**2;
+           const radius = 6.0; 
+           if(distSq < radius * radius) {
+             const dist = Math.sqrt(distSq);
+             const safeDist = Math.max(dist, 0.01);
+             const force = (radius - dist) / radius; 
+             const factor = 5.0 * force; 
+             dx = (tx - hoverPoint.x) / safeDist * factor;
+             dy = (ty - hoverPoint.y) / safeDist * factor;
+             dz = (tz - hoverPoint.z) / safeDist * factor;
+           }
+        }
+
+        let ox = t_interact[i3]; let oy = t_interact[i3+1]; let oz = t_interact[i3+2];
+        ox += (dx - ox) * 0.1; oy += (dy - oy) * 0.1; oz += (dz - oz) * 0.1;
+        t_interact[i3] = ox; t_interact[i3+1] = oy; t_interact[i3+2] = oz;
+        tp[i3] = tx + ox; tp[i3+1] = ty + oy; tp[i3+2] = tz + oz;
+      }
+      treeGeo.attributes.position.needsUpdate = true;
+
+      const hp = heartGeo.attributes.position.array;
+      heartGlow.intensity = morph * 1.0; 
+      const heartFloatY = Math.sin(time * 1.5) * 0.3;
+      const heartScale = 1.0 + Math.sin(time * 3.0) * 0.05; 
+
+      for(let i=0; i<HEART_COUNT; i++){
+        const i3 = i*3;
+        const mx = h_start[i3]   + (h_target[i3]   - h_start[i3])   * morph;
+        const my = h_start[i3+1] + (h_target[i3+1] - h_start[i3+1]) * morph;
+        const mz = h_start[i3+2] + (h_target[i3+2] - h_start[i3+2]) * morph;
+
+        if(morph > 0.8 && !dreamMode) {
+           const cy = TREE_HEIGHT/2 + 2.0;
+           let lx = h_local[i3]; let ly = h_local[i3+1]; let lz = h_local[i3+2];
+           lx *= heartScale; ly *= heartScale; lz *= heartScale;
+           const rot = time * 0.5;
+           const rx = lx * Math.cos(rot) - lz * Math.sin(rot);
+           const rz = lx * Math.sin(rot) + lz * Math.cos(rot);
+           hp[i3] = rx; hp[i3+1] = cy + ly + heartFloatY; hp[i3+2] = rz;
+        } else {
+           hp[i3] = mx; hp[i3+1] = my; hp[i3+2] = mz;
+        }
+      }
+      heartGeo.attributes.position.needsUpdate = true;
+      heartGlow.position.y = TREE_HEIGHT/2 + 2.0 + heartFloatY;
+
+      const sp = spaceGeo.attributes.position.array;
+      const LIMIT = 80; 
+      for(let i=0; i<SPACE_COUNT; i++){
+        const i3 = i*3;
+        sp[i3] += s_vel[i3]; sp[i3+1] += s_vel[i3+1]; sp[i3+2] += s_vel[i3+2];
+        if(sp[i3]>LIMIT) sp[i3]=-LIMIT; if(sp[i3]<-LIMIT) sp[i3]=LIMIT;
+        if(sp[i3+1]>LIMIT) sp[i3+1]=-LIMIT; if(sp[i3+1]<-LIMIT) sp[i3+1]=LIMIT;
+        if(sp[i3+2]>LIMIT) sp[i3+2]=-LIMIT; if(sp[i3+2]<-LIMIT) sp[i3+2]=LIMIT;
+      }
+      spaceGeo.attributes.position.needsUpdate = true;
+
+      const autoRot = time * 0.1; 
+      if(isMouseActive) {
+        group.rotation.y = autoRot + mouse.x * 0.3;
+        group.rotation.x = mouse.y * 0.05;
+      } else {
+        group.rotation.y = autoRot;
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
+

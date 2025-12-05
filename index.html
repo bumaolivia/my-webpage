@@ -108,19 +108,24 @@
       z-index: 20;
       font-size: 24px;
       cursor: pointer;
-      opacity: 0.7;
+      opacity: 0.5; /* 初始半透明 */
       transition: opacity 0.3s;
       color: #ffc0cb;
       pointer-events: auto;
     }
     #music-control:hover { opacity: 1; text-shadow: 0 0 10px #ffc0cb; }
+    /* 播放时旋转 */
+    .rotating { animation: spin 4s linear infinite; opacity: 1 !important; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div id="canvas-container"></div>
   
+  <!-- Jingle Bells 音频 -->
   <audio id="bgm" loop>
-    <source src="https://music.163.com/song/media/outer/url?id=185763.mp3" type="audio/mpeg">
+    <source src="https://webaudioapi.com/samples/audio-tag/chrono.mp3" type="audio/mpeg"> <!-- 备用 -->
+    <source src="https://upload.wikimedia.org/wikipedia/commons/e/e8/Jingle_Bells_Kevin_MacLeod_-_Jingle_Bells.ogg" type="audio/ogg">
     Your browser does not support the audio element.
   </audio>
   <div id="music-control" title="Play/Pause Music">🎵</div>
@@ -143,20 +148,43 @@
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 
   <script>
+    // 音频自动播放逻辑
     const bgm = document.getElementById('bgm');
     const musicBtn = document.getElementById('music-control');
     let isPlaying = false;
-    musicBtn.addEventListener('click', () => {
+
+    function playMusic() {
+      if(!isPlaying) {
+        bgm.play().then(() => {
+          isPlaying = true;
+          musicBtn.classList.add('rotating');
+        }).catch(err => {
+          console.log("Autoplay prevented, waiting for interaction.");
+        });
+      }
+    }
+
+    // 1. 尝试页面加载即播放
+    window.addEventListener('load', playMusic);
+
+    // 2. 任何点击都触发播放 (应对浏览器策略)
+    document.body.addEventListener('click', playMusic, { once: true });
+
+    // 手动控制
+    musicBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // 防止触发 body 的 playMusic
       if (isPlaying) {
         bgm.pause();
-        musicBtn.style.opacity = 0.5;
+        musicBtn.classList.remove('rotating');
       } else {
         bgm.play();
-        musicBtn.style.opacity = 1;
+        musicBtn.classList.add('rotating');
       }
       isPlaying = !isPlaying;
     });
 
+
+    // =============== 材质纹理 ===============
     function createBrightTexture(baseColor) {
       const size = 128;
       const canvas = document.createElement('canvas');
@@ -231,12 +259,11 @@
     const t_pos = new Float32Array(TREE_COUNT * 3);
     const t_start = new Float32Array(TREE_COUNT * 3);
     const t_target_tree = new Float32Array(TREE_COUNT * 3); 
-    const t_target_dancer = new Float32Array(TREE_COUNT * 3); // 舞者目标
+    const t_target_dancer = new Float32Array(TREE_COUNT * 3); 
     const t_sizes = new Float32Array(TREE_COUNT);
     const t_interact = new Float32Array(TREE_COUNT * 3); 
-    const t_part_id = new Float32Array(TREE_COUNT); // 身体部位标记
+    const t_part_id = new Float32Array(TREE_COUNT); 
 
-    // 树形态
     for(let i=0; i<TREE_COUNT; i++){
       const t = Math.random();
       const y = -TREE_HEIGHT/2 + TREE_HEIGHT * t;
@@ -273,19 +300,16 @@
       t_sizes[i] = 0.1 + Math.random() * 0.2; 
     }
 
-    // 舞者形态生成 helper
-    // 0:Head, 1:Body, 2:LArm, 3:RArm, 4:LLeg, 5:RLeg
     function assignDancerPart(i) {
       const ratio = i / TREE_COUNT;
-      if(ratio < 0.15) return 0; // Head
-      if(ratio < 0.45) return 1; // Body
-      if(ratio < 0.58) return 2; // LArm
-      if(ratio < 0.71) return 3; // RArm
-      if(ratio < 0.85) return 4; // LLeg
-      return 5; // RLeg
+      if(ratio < 0.15) return 0; 
+      if(ratio < 0.45) return 1; 
+      if(ratio < 0.58) return 2; 
+      if(ratio < 0.71) return 3; 
+      if(ratio < 0.85) return 4; 
+      return 5; 
     }
 
-    // 生成舞者静态基础位置 (T-pose 类似)
     for(let i=0; i<TREE_COUNT; i++){
       const part = assignDancerPart(i);
       t_part_id[i] = part;
@@ -294,39 +318,37 @@
       const r = Math.random();
       const th = Math.random() * Math.PI * 2;
 
-      if(part === 0) { // Head (Sphere)
+      if(part === 0) { 
         const rad = 2.0 * Math.cbrt(r);
         const phi = Math.acos(2*Math.random()-1);
         x = rad * Math.sin(phi) * Math.cos(th);
         y = 14 + rad * Math.sin(phi) * Math.sin(th);
         z = rad * Math.cos(phi);
-      } else if(part === 1) { // Body (Cylinder)
+      } else if(part === 1) { 
         const rad = 2.5 * Math.sqrt(r);
-        const h = Math.random() * 10; // 4 to 14
+        const h = Math.random() * 10; 
         x = rad * Math.cos(th);
         y = 4 + h;
         z = rad * Math.sin(th);
-      } else if(part === 2) { // LArm (Cylinder ish)
-        // Shoulder at (2.5, 12, 0) -> Length 7
+      } else if(part === 2) { 
         const len = Math.random() * 7;
         const rad = 0.8 * Math.sqrt(r);
         x = -2.5 - len; 
         y = 12 + rad * Math.cos(th);
         z = rad * Math.sin(th);
-      } else if(part === 3) { // RArm
+      } else if(part === 3) { 
         const len = Math.random() * 7;
         const rad = 0.8 * Math.sqrt(r);
         x = 2.5 + len;
         y = 12 + rad * Math.cos(th);
         z = rad * Math.sin(th);
-      } else if(part === 4) { // LLeg
-        // Hip at (-1.5, 4, 0) -> Length 9
+      } else if(part === 4) { 
         const len = Math.random() * 9;
         const rad = 1.0 * Math.sqrt(r);
         x = -1.5 + rad * Math.cos(th);
         y = 4 - len;
         z = rad * Math.sin(th);
-      } else { // RLeg
+      } else { 
         const len = Math.random() * 9;
         const rad = 1.0 * Math.sqrt(r);
         x = 1.5 + rad * Math.cos(th);
@@ -336,7 +358,7 @@
 
       const i3 = i*3;
       t_target_dancer[i3] = x;
-      t_target_dancer[i3+1] = y - 6; // 整体下移居中
+      t_target_dancer[i3+1] = y - 6; 
       t_target_dancer[i3+2] = z;
     }
 
@@ -432,15 +454,14 @@
     group.add(heartGlow);
 
 
-    // =============== 3. 空间粒子 (增加 + 扩散) ===============
-    const SPACE_COUNT = 20000; // 翻倍
+    // =============== 3. 空间粒子 ===============
+    const SPACE_COUNT = 20000; 
     const s_pos = new Float32Array(SPACE_COUNT * 3);
     const s_vel = new Float32Array(SPACE_COUNT * 3);
     const s_sizes = new Float32Array(SPACE_COUNT);
 
     for(let i=0; i<SPACE_COUNT; i++){
       const i3 = i*3;
-      // 扩大范围
       s_pos[i3] = (Math.random()-0.5) * 220;
       s_pos[i3+1] = (Math.random()-0.5) * 180;
       s_pos[i3+2] = (Math.random()-0.5) * 220;
@@ -462,7 +483,7 @@
       vertexShader: particleVs,
       fragmentShader: particleFs,
       transparent: true,
-      opacity: 0.9, // 提高亮度
+      opacity: 0.9, 
       depthWrite: false,
       blending: THREE.AdditiveBlending
     });
@@ -470,19 +491,15 @@
     scene.add(spacePoints);
 
 
-    // =============== 4. 地面 (连贯起伏) ===============
+    // =============== 4. 地面 ===============
     const GROUND_COUNT = 35000; 
     const g_pos = new Float32Array(GROUND_COUNT * 3);
     const g_sizes = new Float32Array(GROUND_COUNT);
     
-    // 使用螺旋线生成，天然连贯
     for(let i=0; i<GROUND_COUNT; i++){
-      // 阿基米德螺旋 r = a + b*theta
       const t = i / GROUND_COUNT;
-      const theta = t * 100 * Math.PI * 2; // 圈数
-      const r = 2.0 + t * 98.0; // 半径扩散
-      
-      // 加入径向随机偏移，填补螺旋之间的空隙
+      const theta = t * 100 * Math.PI * 2; 
+      const r = 2.0 + t * 98.0; 
       const rJitter = r + (Math.random() - 0.5) * 1.5;
       
       const x = rJitter * Math.cos(theta);
@@ -511,9 +528,7 @@
         void main() {
           vec3 pos = position;
           float dist = length(pos.xz);
-          // 波浪起伏
           pos.y += sin(dist * 0.2 - uTime * 1.5) * 0.7 + sin(pos.x * 0.2 + uTime) * 0.3;
-          
           vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
           gl_Position = projectionMatrix * mvPosition;
           float zDist = max(-mvPosition.z, 1.0);
@@ -597,7 +612,7 @@
 
       } else if (currentMode === 'DANCER_STAY') {
         morph = 1; 
-        if (now - danceTimer > 8000) { // 跳8秒
+        if (now - danceTimer > 8000) { 
           currentMode = 'TREE_RETURN';
           startTime = now; 
         }
@@ -617,12 +632,10 @@
       const intersects = raycaster.intersectObject(hitMesh);
       if (intersects.length > 0) hoverPoint = intersects[0].point;
 
-      // 更新树/舞者
       const tp = treeGeo.attributes.position.array;
       for(let i=0; i<TREE_COUNT; i++){
         const i3 = i*3;
         
-        // 1. 计算目标插值位置 (静态)
         let tx, ty, tz;
         
         if (currentMode === 'TREE') {
@@ -630,7 +643,6 @@
           ty = t_start[i3+1] + (t_target_tree[i3+1] - t_start[i3+1]) * morph;
           tz = t_start[i3+2] + (t_target_tree[i3+2] - t_start[i3+2]) * morph;
         } else {
-          // DANCER 相关状态
           let m = morph;
           if (currentMode === 'DANCER_STAY') m = 1;
           
@@ -647,32 +659,28 @@
           tz = treeZ + (dancerZ - treeZ) * m;
         }
 
-        // 2. 舞者动态叠加 (只在变身完成后)
         if (currentMode === 'DANCER_STAY' || (currentMode === 'DANCER_MORPH' && morph > 0.5)) {
            const pid = t_part_id[i];
-           // 简单的骨骼动画逻辑 (正弦波驱动)
-           // 0:Head, 1:Body, 2:LArm, 3:RArm, 4:LLeg, 5:RLeg
            const danceStr = (currentMode === 'DANCER_MORPH') ? (morph - 0.5)*2 : 1.0;
            
-           if(pid === 0) { // Head bob
+           if(pid === 0) { 
              ty += Math.sin(time * 4) * 0.5 * danceStr;
              tx += Math.cos(time * 2) * 0.3 * danceStr;
-           } else if(pid === 1) { // Body bounce
+           } else if(pid === 1) { 
              ty += Math.sin(time * 4) * 0.5 * danceStr;
-           } else if(pid === 2) { // LArm wave
+           } else if(pid === 2) { 
              ty += Math.sin(time * 4 + 1) * 2.0 * danceStr;
              tx += Math.cos(time * 4) * 1.0 * danceStr;
-           } else if(pid === 3) { // RArm wave
+           } else if(pid === 3) { 
              ty += Math.sin(time * 4 + 2) * 2.0 * danceStr;
              tx -= Math.cos(time * 4) * 1.0 * danceStr;
-           } else if(pid === 4) { // LLeg step
+           } else if(pid === 4) { 
              ty += Math.max(0, Math.sin(time * 4)) * 1.5 * danceStr;
-           } else if(pid === 5) { // RLeg step
+           } else if(pid === 5) { 
              ty += Math.max(0, Math.sin(time * 4 + 3.14)) * 1.5 * danceStr;
            }
         }
 
-        // 3. 交互 & 梦境
         if(dreamMode && currentMode === 'TREE') {
            tx += Math.sin(time + i) * 2.0;
            ty += Math.cos(time + i*0.5) * 2.0;
@@ -701,7 +709,6 @@
       }
       treeGeo.attributes.position.needsUpdate = true;
 
-      // 爱心
       const hp = heartGeo.attributes.position.array;
       heartGlow.intensity = (currentMode === 'TREE' ? morph : 0) * 1.0; 
       const heartFloatY = Math.sin(time * 1.5) * 0.3;
@@ -732,7 +739,6 @@
       heartGeo.attributes.position.needsUpdate = true;
       heartGlow.position.y = TREE_HEIGHT/2 + 2.0 + heartFloatY;
 
-      // 空间粒子
       const sp = spaceGeo.attributes.position.array;
       const LIMIT = 80; 
       for(let i=0; i<SPACE_COUNT; i++){
@@ -759,4 +765,3 @@
   </script>
 </body>
 </html>
-
